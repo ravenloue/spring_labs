@@ -1,25 +1,26 @@
 package com.app.library.services;
 
-import com.app.library.models.Book;
-import com.app.library.models.Member;
-import com.app.library.models.BorrowingRecord;
-
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.app.library.models.Book;
+import com.app.library.models.BorrowingRecord;
+import com.app.library.models.Member;
+
 @Service
 public class LibraryService {
 
-    private Map<Long, Book> books = new HashMap<Long, Book>();
-    private Map<Long, Member> members = new HashMap<Long, Member>();
-    private Map<Long, BorrowingRecord> borrowingRecords = new HashMap<Long, BorrowingRecord>();
+    private Map<Long, Book> books = new HashMap<>();
+    private Map<Long, Member> members = new HashMap<>();
+    private Map<Long, BorrowingRecord> borrowingRecords = new HashMap<>();
 
     // ==================== Book Methods ====================
 
@@ -46,6 +47,69 @@ public class LibraryService {
     // Delete a book by ID
     public void deleteBook(Long id) {
         books.remove(id);
+    }
+
+    // Get books by Genre
+    public Collection<Book> getBooksByGenre(String genre){
+        Collection<Book> allBooks = (Collection<Book>)(books.values());
+        return allBooks.stream()
+                .filter(book -> (book.getGenre()).toLowerCase().contains(genre.toLowerCase()))
+                .collect(Collectors.toList());
+    }
+
+    // Get books by Author and Genre
+    public Collection<Book> getBooksByAuthorAndGenre(String author, String genre){
+        Collection<Book> allBooks = (Collection<Book>)(books.values());
+        return allBooks.stream()
+                .filter(book -> book.getAuthor().equalsIgnoreCase(author))
+                .filter(
+                    book -> genre == null || book.getGenre()
+                        .toLowerCase()
+                        .contains(genre.toLowerCase()))
+                .collect(Collectors.toList());
+    }
+
+    // Get books by due date
+    public Collection<Book> getBooksDueOnDate(LocalDate dueDate) {
+        Collection<BorrowingRecord> allRecords = (Collection<BorrowingRecord>)
+                (borrowingRecords.values());
+
+        ArrayList<Book> dueBooks = new ArrayList<>();
+
+        Collection<BorrowingRecord> tempRecords = allRecords.stream()
+                .filter(record -> record.getDueDate().equals(dueDate))
+                .collect(Collectors.toList());
+
+        
+        for (BorrowingRecord record : tempRecords) {
+            Book book = books.get(record.getBookId());
+            if (book != null) {
+                dueBooks.add(book);
+            }
+        }
+        return dueBooks;
+    }
+
+    // Check book availability
+        public LocalDate checkAvailability(Long bookId) {
+        Collection<BorrowingRecord> allRecords = (Collection<BorrowingRecord>)
+                (borrowingRecords.values());
+
+        Book bookToCheck = books.get(bookId);
+
+        if (bookToCheck == null) {
+            return null;
+        } else {
+            if (bookToCheck.getAvailableCopies() >= 1) {
+                return LocalDate.now();
+            } else {
+                List<BorrowingRecord> sortedRecords = allRecords.stream()
+                .filter(record -> Objects.equals(record.getBookId(), bookId))
+                .sorted((b1, b2) -> b1.getDueDate().compareTo(b2.getDueDate()))
+                .collect(Collectors.toList());
+                return sortedRecords.get(0).getDueDate();
+            }
+        }
     }
 
     // ==================== Member Methods ====================

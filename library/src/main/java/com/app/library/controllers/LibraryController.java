@@ -1,20 +1,28 @@
 package com.app.library.controllers;
 
-import com.app.library.models.Book;
-import com.app.library.models.Member;
-import com.app.library.models.BorrowingRecord;
-import com.app.library.services.LibraryService;
+import java.time.LocalDate;
+import java.util.Collection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.format.annotation.DateTimeFormat;
-import java.time.LocalDate;
-import java.util.Collection;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.library.models.Book;
+import com.app.library.models.BorrowingRecord;
+import com.app.library.models.Member;
+import com.app.library.services.LibraryService;
 
 @RestController
 @RequestMapping("/api")
@@ -28,12 +36,24 @@ public class LibraryController {
 
     // ==================== Book Endpoints ====================
 
-    // Get all books
+    // Get all books, filter by author and/or genre if provided
     @GetMapping("/books")
-    public ResponseEntity<Collection<Book>> getAllBooks() {
-        Collection<Book> books = libraryService.getAllBooks();
-        logger.info("The list of books returned"+books);
-        return new ResponseEntity<>(books, HttpStatus.OK);
+    public ResponseEntity<Collection<Book>> getBooks(
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre) {
+        if (author!=null &&  genre!=null) {
+            Collection<Book> books = libraryService.getBooksByAuthorAndGenre(author, genre);
+            logger.info("The books retrieved for the author and genre "+author+" - " + genre);
+            return new ResponseEntity<>(books, HttpStatus.OK);
+        } else if (author!=null) {
+            Collection<Book> books = libraryService.getBooksByAuthorAndGenre(author, null);
+            logger.info("The books retrieved for the author "+author);
+            return new ResponseEntity<>(books, HttpStatus.OK);
+        } else {
+            Collection<Book> books = libraryService.getAllBooks();
+            logger.info("All the books retrieved");
+            return new ResponseEntity<>(books, HttpStatus.OK);
+        }
     }
 
     // Get a book by ID
@@ -78,6 +98,27 @@ public class LibraryController {
         libraryService.deleteBook(id);
         logger.info("The book has been deleted ");
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // Get books due on a specific date
+    @GetMapping("/books/dueondate")
+    public ResponseEntity<Collection<Book>> getBooksDueOnDate(
+            @RequestParam("dueDate") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate dueDate) {
+        Collection<Book> books = libraryService.getBooksDueOnDate(dueDate);
+        logger.info("The books retrieved by due date "+dueDate);
+        return new ResponseEntity<>(books, HttpStatus.OK);
+    }
+
+    // Check availability of a book by ID
+    @GetMapping("/books/{id}/availability")
+    public ResponseEntity<LocalDate> checkAvailability(
+            @PathVariable Long id) {
+        LocalDate avlDate = libraryService.checkAvailability(id);
+        if(avlDate == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        } else {
+            return new ResponseEntity<>(avlDate, HttpStatus.OK);
+        }
     }
 
     // ==================== Member Endpoints ====================
